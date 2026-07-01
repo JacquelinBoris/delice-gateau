@@ -12,6 +12,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <meta name="apple-mobile-web-app-title" content="Délices Gâteau"/>
+<link rel="manifest" href="/delice-gateau/manifest.json"/>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=DM+Sans:wght@300;400;500;600&family=Great+Vibes&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -2137,55 +2138,17 @@ try {
 <!-- ═══════════ PWA : Installation "Ajouter à l'écran d'accueil" ═══════════ -->
 <script>
 (function(){
-  const LOGO_B64 = document.querySelector('link[rel="apple-touch-icon"]').href;
-
-  // 1. Génération dynamique du manifest.json (fichier unique autonome)
-  const manifest = {
-    name: "Délices Gâteau · Mélanie Ambanja",
-    short_name: "Délices Gâteau",
-    description: "Commandez vos gâteaux artisanaux à Ambanja",
-    start_url: ".",
-    display: "standalone",
-    background_color: "#1a0a12",
-    theme_color: "#B5294E",
-    orientation: "portrait",
-    icons: [
-      { src: LOGO_B64, sizes: "200x200", type: "image/png", purpose: "any maskable" }
-    ]
-  };
-  const manifestBlob = new Blob([JSON.stringify(manifest)], {type:'application/json'});
-  const manifestURL = URL.createObjectURL(manifestBlob);
-  const manifestLink = document.createElement('link');
-  manifestLink.rel = 'manifest';
-  manifestLink.href = manifestURL;
-  document.head.appendChild(manifestLink);
-
-  // 2. Service worker minimal (mise en cache de la page pour fonctionnement hors-ligne basique)
+  // 1. Enregistrement du vrai service worker externe
   if('serviceWorker' in navigator){
-    const swCode = `
-      const CACHE='delices-gateau-v1';
-      self.addEventListener('install', e => self.skipWaiting());
-      self.addEventListener('activate', e => self.clients.claim());
-      self.addEventListener('fetch', e => {
-        e.respondWith(
-          caches.match(e.request).then(cached => cached || fetch(e.request).then(resp => {
-            const respClone = resp.clone();
-            caches.open(CACHE).then(cache => cache.put(e.request, respClone));
-            return resp;
-          }).catch(() => cached))
-        );
-      });
-    `;
-    const swBlob = new Blob([swCode], {type:'application/javascript'});
-    const swURL = URL.createObjectURL(swBlob);
-    navigator.serviceWorker.register(swURL).catch(err => console.warn('Service worker non disponible :', err.message));
+    navigator.serviceWorker.register('/delice-gateau/sw.js')
+      .catch(err => console.warn('SW non disponible :', err.message));
   }
 
-  // 3. Bouton d'installation personnalisé
+  // 2. Bouton d'installation personnalisé
   let deferredPrompt = null;
   const installBtn = document.createElement('button');
   installBtn.id = 'pwaInstallBtn';
-  installBtn.innerHTML = '📲 <span>Installer l\\'application</span>';
+  installBtn.innerHTML = '📲 <span>Installer l\'application</span>';
   installBtn.style.cssText = `
     position:fixed; left:50%; bottom:18px; transform:translateX(-50%) translateY(120px);
     z-index:9999; display:flex; align-items:center; gap:.5rem;
@@ -2225,14 +2188,14 @@ try {
     deferredPrompt = null;
   });
 
-  // Sur iOS Safari (pas d'évènement beforeinstallprompt), on affiche une astuce manuelle
+  // iOS Safari : invite manuelle
   const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
-  const isInStandaloneMode = ('standalone' in window.navigator) && window.navigator.standalone;
-  if(isIOS && !isInStandaloneMode){
-    installBtn.innerHTML = '📲 <span>Ajouter à l\\'écran d\\'accueil</span>';
-    installBtn.addEventListener('click', ()=>{
-      alert('Pour installer l\\'application :\\n\\n1. Appuyez sur le bouton Partager ⬆️ de Safari\\n2. Sélectionnez "Sur l\\'écran d\\'accueil"\\n3. Confirmez l\\'ajout');
-    }, {once:false});
+  const isStandalone = ('standalone' in window.navigator) && window.navigator.standalone;
+  if(isIOS && !isStandalone){
+    installBtn.innerHTML = '📲 <span>Ajouter à l\'écran d\'accueil</span>';
+    installBtn.onclick = ()=>{
+      alert('Pour installer l\'application :\n\n1. Appuyez sur le bouton Partager ⬆️ de Safari\n2. Sélectionnez "Sur l\'écran d\'accueil"\n3. Confirmez l\'ajout');
+    };
     setTimeout(showInstallBtn, 1500);
   }
 })();
